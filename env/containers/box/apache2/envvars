@@ -1,0 +1,7 @@
+#!/bin/bash -eu
+
+. "/etc/apache2/custom.d/include.sh"
+
+file_env BOX_DB_PASS "box"
+
+. /etc/apache2/envvars

@@ -1,0 +1,73 @@
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+api:
+  insecure: true
+  dashboard: true
+  debug: false
+  disabledashboardad: true
+
+ping: {}
+
+accessLog: {}
+
+serversTransport:
+  insecureSkipVerify: true
+
+log:
+  level: INFO
+
+entryPoints:
+  http:
+    address: :80
+    forwardedHeaders:
+      insecure: true
+    http:
+      redirections:
+        entryPoint:
+          to: https
+          scheme: https
+          permanent: false
+  https:
+    address: :443
+    forwardedHeaders:
+      insecure: true
+    http:
+      tls:
+        certResolver: ovhDnsChallenge
+        domains:
+          - main: "*.subdomain.example.com"
+            sans:
+              - "*.subdomain.example.com"
+              - subdomain.example.com
+
+providers:
+  swarm:
+    watch: true
+    endpoint: unix:///var/run/docker.sock
+    defaultRule: Host(`{{ if index .Labels "custom.hostname" }}{{ index .Labels "custom.hostname" }}{{ else }}{{ normalize .Name }}{{ end }}.subdomain.example.com`)
+    exposedByDefault: false
+    useBindPortIP: false
+    network: lb
+    refreshSeconds: 5
+    constraints: Label(`custom.admin`, `true`)
+
+certificatesResolvers:
+  ovhDnsChallenge:
+    acme:
+      email: admin@subdomain.example.com
+      caServer: https://acme-v02.api.letsencrypt.org/directory
+      storage: /etc/acme/acme.json
+      dnsChallenge:
+        provider: ovh
+        delayBeforeCheck: 5s
+        resolvers:
+          - 213.251.128.131
+          - 8.8.8.8
+
+experimental:
+  plugins:
+    sablier:
+      moduleName: github.com/sablierapp/sablier
+      version: v1.8.5

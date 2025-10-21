@@ -1,0 +1,31 @@
+#include <stdio.h>
+#include <strings.h>
+int checkLicense(char license[16]) {
+    int check = 0;
+    for (int i=0; i < 15; i++) {
+        check += license[i];
+    }
+    if ((check % 10) + 0x30 == license[15]) {
+        return 0;
+    }
+    return 1;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        printf("Usage: %s <licensekey>\n", argv[0]);
+        return 1;
+    }
+    if (strlen(argv[1]) != 16) {
+        printf("Usage: %s <licensekey>\n", argv[0]);
+        printf("License key should be 16 characters long\n");
+        return 1;
+    }
+
+    if (checkLicense(argv[1]) == 0) {
+        printf("License key is good\n");
+        return 0;
+    }
+    printf("License key is not good\n");
+    return 1;
+}

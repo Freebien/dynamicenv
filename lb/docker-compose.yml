@@ -1,0 +1,84 @@
+services:
+  traefik:
+    image: traefik:3.2
+    secrets:
+      - ovh_endpoint
+      - ovh_application_key
+      - ovh_application_secret
+      - ovh_consumer_key
+      - usersfile
+    volumes:
+      - type: bind
+        source: ./data/acme
+        target: /etc/acme
+      - type: bind
+        source: ./config
+        target: /etc/traefik
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    environment:
+      - TZ=Europe/Paris
+      - OVH_ENDPOINT_FILE=/run/secrets/ovh_endpoint
+      - OVH_APPLICATION_KEY_FILE=/run/secrets/ovh_application_key
+      - OVH_APPLICATION_SECRET_FILE=/run/secrets/ovh_application_secret
+      - OVH_CONSUMER_KEY_FILE=/run/secrets/ovh_consumer_key
+    ports:
+      - mode: host
+        published: 30080
+        target: 80
+      - mode: host
+        published: 30443
+        target: 443
+    deploy:
+      mode: global
+      labels:
+        - custom.hostname=traefik
+        - custom.admin=true
+        - traefik.enable=true
+        - traefik.http.routers.traefik.service=api@internal
+        - traefik.http.services.dummy-svc.loadbalancer.server.port=9999
+        - traefik.http.middlewares.traefik-auth.basicauth.usersfile=/run/secrets/usersfile
+        - traefik.http.middlewares.traefik-auth.basicauth.realm=Scholar
+        - traefik.http.routers.traefik.middlewares=traefik-auth
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 10s
+      timeout: 2s
+      retries: 3
+      start_period: 1s
+    networks:
+      - lb
+
+  sablier:
+    image: sablierapp/sablier:1.8.5
+    command:
+      - start
+      - --provider.name=swarm
+      - --logging.level=trace
+    deploy:
+      labels:
+        - traefik.enable=false
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      - lb
+
+networks:
+  lb:
+    name: lb
+    attachable: true
+
+secrets:
+  ovh_endpoint:
+    file: ./secrets/ovh_endpoint
+  ovh_application_key:
+    file: ./secrets/ovh_application_key
+  ovh_application_secret:
+    file: ./secrets/ovh_application_secret
+  ovh_consumer_key:
+    file: ./secrets/ovh_consumer_key
+  usersfile:
+    file: ./secrets/usersfile

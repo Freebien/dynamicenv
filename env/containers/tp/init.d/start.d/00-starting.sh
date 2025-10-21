@@ -1,0 +1,1 @@
+echo "$(date) - [INFO] launching for start init"

@@ -1,0 +1,1 @@
+echo "$(date) - [INFO] finishing for pre init"

@@ -1,0 +1,283 @@
+services:
+  traefik:
+    image: localhost/opsie/traefik:latest
+    build:
+      context: containers/traefik
+    environment:
+      TZ: Europe/Paris
+      TRAEFIK_GLOBAL_SENDANONYMOUSUSAGE: "false"
+      TRAEFIK_ACCESSLOG: "true"
+      TRAEFIK_API: "true"
+      TRAEFIK_API_DASHBOARD: "true"
+      TRAEFIK_API_DISABLEDASHBOARDAD: "true"
+      TRAEFIK_API_INSECURE: "true"
+      TRAEFIK_ENTRYPOINTS_HTTP: "true"
+      TRAEFIK_ENTRYPOINTS_HTTP_ADDRESS: :80
+      TRAEFIK_ENTRYPOINTS_HTTP_FORWARDEDHEADERS_INSECURE: "true"
+      TRAEFIK_PING: "true"
+      TRAEFIK_PROVIDERS_SWARM: "true"
+      TRAEFIK_PROVIDERS_SWARM_DEFAULTRULE: 'Host(`{{"{{"}} index .Labels "custom.hostname-prefix" {{"}}"}}-${GROUP:?}-${NUM:?}.s.freebs.ovh`)'
+      TRAEFIK_PROVIDERS_SWARM_EXPOSEDBYDEFAULT: "false"
+      TRAEFIK_PROVIDERS_SWARM_REFRESHSECONDS: 5
+      TRAEFIK_PROVIDERS_SWARM_CONSTRAINTS: Label(`custom.group`, `${GROUP:?}-${NUM:?}`)
+      TRAEFIK_EXPERIMENTAL_PLUGINS_SABLIER_MODULENAME: github.com/sablierapp/sablier
+      TRAEFIK_EXPERIMENTAL_PLUGINS_SABLIER_VERSION: v1.8.5
+    deploy:
+      labels:
+        - custom.hostname=*-${GROUP:?}-${NUM:?}
+        - custom.admin=true
+        - traefik.enable=true
+        - traefik.swarm.lbswarm=true
+        - traefik.swarm.network=lb
+        - traefik.http.services.lb-${GROUP:?}-${NUM:?}.loadbalancer.server.port=80
+        - traefik.http.routers.lb-${GROUP:?}-${NUM:?}.service=lb-${GROUP:?}-${NUM:?}
+        - traefik.http.routers.lb-${GROUP:?}-${NUM:?}.rule=HostRegexp(`^[a-z0-9]+-${GROUP:?}-${NUM:?}\.s\.freebs\.ovh$$`)
+        - traefik.http.routers.lb-${GROUP:?}-${NUM:?}.middlewares=dynamic-env-${GROUP:?}-${NUM:?}
+        - traefik.http.middlewares.dynamic-env-${GROUP:?}-${NUM:?}.plugin.sablier.group=env-${GROUP:?}-${NUM:?}
+        - traefik.http.middlewares.dynamic-env-${GROUP:?}-${NUM:?}.plugin.sablier.sablierUrl=http://sablier:10000
+        - traefik.http.middlewares.dynamic-env-${GROUP:?}-${NUM:?}.plugin.sablier.sessionDuration=3h
+        - traefik.http.middlewares.dynamic-env-${GROUP:?}-${NUM:?}.plugin.sablier.dynamic.displayName=Student ${GROUP:?} ${NUM:?} environment
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      - lb
+      - default
+
+  dvwa:
+    image: localhost/opsie/dvwa:latest
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - bash -c ':> /dev/tcp/127.0.0.1/80' || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 3
+    configs:
+      - source: dvwa-php.ini
+        target: /etc/php/7.0/apache2/conf.d/dvwa-php.ini
+        mode: 0444
+    environment:
+      - DB_SERVER=db
+    deploy:
+      replicas: 0
+      labels:
+        - custom.hostname-prefix=dvwa
+        - custom.group=${GROUP:?}-${NUM:?}
+        - traefik.enable=true
+        - traefik.swarm.lbswarm=true
+        - traefik.swarm.network=net_${GROUP:?}_${NUM:?}
+        - traefik.http.services.dvwa-${GROUP:?}-${NUM:?}.loadbalancer.server.port=80
+        - sablier.enable=true
+        - sablier.group=env-${GROUP:?}-${NUM:?}
+    networks:
+      - default
+
+  wetty:
+    image: localhost/opsie/wetty:latest
+    build:
+      context: containers/wetty
+    environment:
+      - SSHHOST=shell-${GROUP:?}-${NUM:?}
+      - BASE=/
+      - TITLE=WeTTY - Student ${GROUP:?} ${NUM:?}
+      - ALLOWIFRAME=true
+    deploy:
+      replicas: 0
+      labels:
+        - custom.hostname-prefix=wetty
+        - custom.group=${GROUP:?}-${NUM:?}
+        - traefik.enable=true
+        - traefik.swarm.lbswarm=true
+        - traefik.swarm.network=net_${GROUP:?}_${NUM:?}
+        - traefik.http.services.wetty-${GROUP:?}-${NUM:?}.loadbalancer.server.port=3000
+        - sablier.enable=true
+        - sablier.group=env-${GROUP:?}-${NUM:?}
+    networks:
+      - default
+
+  wetty-bin:
+    image: localhost/opsie/wetty:latest
+    build:
+      context: containers/wetty
+    environment:
+      - SSHHOST=bin-${GROUP:?}-${NUM:?}
+      - BASE=/
+      - TITLE=Bin - Student ${GROUP:?} ${NUM:?}
+      - ALLOWIFRAME=true
+    deploy:
+      replicas: 0
+      labels:
+        - custom.hostname-prefix=bin
+        - custom.group=${GROUP:?}-${NUM:?}
+        - traefik.enable=true
+        - traefik.swarm.lbswarm=true
+        - traefik.swarm.network=net_${GROUP:?}_${NUM:?}
+        - traefik.http.services.wetty-bin-${GROUP:?}-${NUM:?}.loadbalancer.server.port=3000
+        - sablier.enable=true
+        - sablier.group=env-${GROUP:?}-${NUM:?}
+    networks:
+      - default
+
+  bin:
+    image: localhost/opsie/bin:latest
+    build:
+      context: containers/bin
+    hostname: bin-${GROUP:?}-${NUM:?}
+    deploy:
+      replicas: 0
+      labels:
+        - sablier.enable=true
+        - sablier.group=env-${GROUP:?}-${NUM:?}
+        - custom.group=${GROUP:?}-${NUM:?}
+        - traefik.enable=false
+    volumes:
+      - ./data/${GROUP:?}/${NUM:?}/shell-data:/home/student/data
+    cap_add:
+      - CAP_SYSLOG
+    networks:
+      - default
+
+  shell:
+    image: localhost/opsie/shell:latest
+    build:
+      context: containers/shell
+    hostname: shell-${GROUP:?}-${NUM:?}
+    deploy:
+      replicas: 0
+      labels:
+        - sablier.enable=true
+        - sablier.group=env-${GROUP:?}-${NUM:?}
+        - custom.group=${GROUP:?}-${NUM:?}
+        - traefik.enable=false
+    volumes:
+      - ./data/${GROUP:?}/${NUM:?}/shell-data:/home/student/data
+    networks:
+      - default
+
+  tp:
+    image: localhost/opsie/tp:latest
+    build:
+      context: containers/tp
+    environment:
+      - FLAG1_FILE=/run/secrets/flag1
+      - FLAG2_FILE=/run/secrets/flag2
+      - FLAG3_FILE=/run/secrets/flag3
+    deploy:
+      replicas: 0
+      labels:
+        - custom.hostname-prefix=exam
+        - custom.group=${GROUP:?}-${NUM:?}
+        - traefik.enable=true
+        - traefik.swarm.lbswarm=true
+        - traefik.swarm.network=net_${GROUP:?}_${NUM:?}
+        - traefik.http.services.exam-${GROUP:?}-${NUM:?}.loadbalancer.server.port=80
+        - sablier.enable=true
+        - sablier.group=env-${GROUP:?}-${NUM:?}
+    secrets:
+      - source: flag1
+        mode: 0o400
+      - source: flag2
+        mode: 0o400
+      - source: flag3
+        mode: 0o400
+    networks:
+      - default
+      - box
+
+  box:
+    image: localhost/opsie/box:latest
+    build:
+      context: containers/box
+    environment:
+      - BOX_DB_HOST=db-box
+      - BOX_DB_PORT=5432
+      - BOX_DB_USER=box
+      - BOX_DB_PASS_FILE=/run/secrets/box_db_password
+      - BOX_DB_DB=box
+    deploy:
+      replicas: 0
+      labels:
+        - custom.hostname-prefix=box
+        - custom.group=${GROUP:?}-${NUM:?}
+        - traefik.enable=true
+        - traefik.swarm.lbswarm=true
+        - traefik.swarm.network=net_${GROUP:?}_${NUM:?}
+        - traefik.http.services.box-${GROUP:?}-${NUM:?}.loadbalancer.server.port=80
+        - sablier.enable=true
+        - sablier.group=env-${GROUP:?}-${NUM:?}
+    secrets:
+      - box_db_password
+    networks:
+      - default
+      - box
+
+  db-box:
+    image: localhost/opsie/postgres:16.2-alpine
+    build:
+      context: containers/postgres
+    hostname: db-box-${GROUP:?}-${NUM:?}
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+    secrets:
+      - postgres_password
+      - box_bob_password
+    networks:
+      - box
+
+  db_init:
+    image: localhost/opsie/box:latest
+    command: bash /init.d/db_init.sh
+    environment:
+      - POSTGRES_HOST=db-box
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      - BOX_DB_HOST=db-box
+      - BOX_DB_USER=box
+      - BOX_DB_PASS_FILE=/run/secrets/box_db_password
+      - BOX_DB_DB=box
+      - BOX_ADMIN_PASSWORD_FILE=/run/secrets/box_admin_password
+    secrets:
+      - postgres_password
+      - box_db_password
+      - box_admin_password
+      - box_bob_password
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+    volumes:
+      - ./containers/box/htdocs/setup:/var/www/html/setup:ro
+      - ./scripts/init.d:/init.d
+    networks:
+      - box
+
+networks:
+  default:
+    name: net_${GROUP:?}_${NUM:?}
+  lb:
+    external: true
+  box:
+    name: net_${GROUP:?}_${NUM:?}_box
+
+configs:
+  dvwa-php.ini:
+    external: true
+
+secrets:
+  postgres_password:
+    file: ./data/${GROUP:?}/${NUM:?}/secrets/postgres_password
+  box_db_password:
+    file: ./data/${GROUP:?}/${NUM:?}/secrets/box_db_password
+  box_admin_password:
+    file: ./data/${GROUP:?}/${NUM:?}/secrets/box_admin_password
+  box_bob_password:
+    file: ./data/${GROUP:?}/${NUM:?}/secrets/box_bob_password
+  flag1:
+    file: ./data/${GROUP:?}/${NUM:?}/secrets/flag1
+  flag2:
+    file: ./data/${GROUP:?}/${NUM:?}/secrets/flag2
+  flag3:
+    file: ./data/${GROUP:?}/${NUM:?}/secrets/flag3
