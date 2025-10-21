@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: localhost/opsie/traefik:latest
+    image: localhost/env/traefik:latest
     build:
       context: containers/traefik
     environment:
@@ -16,7 +16,7 @@ services:
       TRAEFIK_ENTRYPOINTS_HTTP_FORWARDEDHEADERS_INSECURE: "true"
       TRAEFIK_PING: "true"
       TRAEFIK_PROVIDERS_SWARM: "true"
-      TRAEFIK_PROVIDERS_SWARM_DEFAULTRULE: 'Host(`{{"{{"}} index .Labels "custom.hostname-prefix" {{"}}"}}-${GROUP:?}-${NUM:?}.s.freebs.ovh`)'
+      TRAEFIK_PROVIDERS_SWARM_DEFAULTRULE: 'Host(`{{"{{"}} index .Labels "custom.hostname-prefix" {{"}}"}}-${GROUP:?}-${NUM:?}.subdomain.example.com`)'
       TRAEFIK_PROVIDERS_SWARM_EXPOSEDBYDEFAULT: "false"
       TRAEFIK_PROVIDERS_SWARM_REFRESHSECONDS: 5
       TRAEFIK_PROVIDERS_SWARM_CONSTRAINTS: Label(`custom.group`, `${GROUP:?}-${NUM:?}`)
@@ -31,7 +31,7 @@ services:
         - traefik.swarm.network=lb
         - traefik.http.services.lb-${GROUP:?}-${NUM:?}.loadbalancer.server.port=80
         - traefik.http.routers.lb-${GROUP:?}-${NUM:?}.service=lb-${GROUP:?}-${NUM:?}
-        - traefik.http.routers.lb-${GROUP:?}-${NUM:?}.rule=HostRegexp(`^[a-z0-9]+-${GROUP:?}-${NUM:?}\.s\.freebs\.ovh$$`)
+        - traefik.http.routers.lb-${GROUP:?}-${NUM:?}.rule=HostRegexp(`^[a-z0-9]+-${GROUP:?}-${NUM:?}\.subdomain\.example\.com$$`)
         - traefik.http.routers.lb-${GROUP:?}-${NUM:?}.middlewares=dynamic-env-${GROUP:?}-${NUM:?}
         - traefik.http.middlewares.dynamic-env-${GROUP:?}-${NUM:?}.plugin.sablier.group=env-${GROUP:?}-${NUM:?}
         - traefik.http.middlewares.dynamic-env-${GROUP:?}-${NUM:?}.plugin.sablier.sablierUrl=http://sablier:10000
@@ -46,7 +46,7 @@ services:
       - default
 
   dvwa:
-    image: localhost/opsie/dvwa:latest
+    image: localhost/env/dvwa:latest
     healthcheck:
       test:
         - CMD-SHELL
@@ -75,7 +75,7 @@ services:
       - default
 
   wetty:
-    image: localhost/opsie/wetty:latest
+    image: localhost/env/wetty:latest
     build:
       context: containers/wetty
     environment:
@@ -98,7 +98,7 @@ services:
       - default
 
   wetty-bin:
-    image: localhost/opsie/wetty:latest
+    image: localhost/env/wetty:latest
     build:
       context: containers/wetty
     environment:
@@ -121,7 +121,7 @@ services:
       - default
 
   bin:
-    image: localhost/opsie/bin:latest
+    image: localhost/env/bin:latest
     build:
       context: containers/bin
     hostname: bin-${GROUP:?}-${NUM:?}
@@ -140,7 +140,7 @@ services:
       - default
 
   shell:
-    image: localhost/opsie/shell:latest
+    image: localhost/env/shell:latest
     build:
       context: containers/shell
     hostname: shell-${GROUP:?}-${NUM:?}
@@ -157,7 +157,7 @@ services:
       - default
 
   tp:
-    image: localhost/opsie/tp:latest
+    image: localhost/env/tp:latest
     build:
       context: containers/tp
     environment:
@@ -187,7 +187,7 @@ services:
       - box
 
   box:
-    image: localhost/opsie/box:latest
+    image: localhost/env/box:latest
     build:
       context: containers/box
     environment:
@@ -214,7 +214,7 @@ services:
       - box
 
   db-box:
-    image: localhost/opsie/postgres:16.2-alpine
+    image: localhost/env/postgres:16.2-alpine
     build:
       context: containers/postgres
     hostname: db-box-${GROUP:?}-${NUM:?}
@@ -228,7 +228,7 @@ services:
       - box
 
   db_init:
-    image: localhost/opsie/box:latest
+    image: localhost/env/box:latest
     command: bash /init.d/db_init.sh
     environment:
       - POSTGRES_HOST=db-box

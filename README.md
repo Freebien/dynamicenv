@@ -28,4 +28,3 @@ cd lb
 docker stack deploy -c docker-compose.yml lb
 ```
 
-Once the
