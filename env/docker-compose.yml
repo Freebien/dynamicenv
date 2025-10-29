@@ -54,10 +54,6 @@ services:
       interval: 5s
       timeout: 10s
       retries: 3
-    configs:
-      - source: dvwa-php.ini
-        target: /etc/php/7.0/apache2/conf.d/dvwa-php.ini
-        mode: 0444
     environment:
       - DB_SERVER=db
     deploy:
@@ -261,10 +257,6 @@ networks:
     external: true
   box:
     name: net_${GROUP:?}_${NUM:?}_box
-
-configs:
-  dvwa-php.ini:
-    external: true
 
 secrets:
   postgres_password:
